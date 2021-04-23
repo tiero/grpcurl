@@ -25,6 +25,7 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/desc/protoprint"
 	"github.com/jhump/protoreflect/dynamic"
+	"golang.org/x/net/proxy"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
@@ -615,6 +616,10 @@ func BlockingDial(ctx context.Context, network, address string, creds credential
 			writeResult:          writeResult,
 		}
 	}
+	torDialer, err := proxy.SOCKS5("tcp", "127.0.0.1:9150", nil, proxy.Direct)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't connect to socks proxy: %w", err)
+	}
 	dialer := func(ctx context.Context, address string) (net.Conn, error) {
 		// NB: We *could* handle the TLS handshake ourselves, in the custom
 		// dialer (instead of customizing both the dialer and the credentials).
@@ -623,7 +628,7 @@ func BlockingDial(ctx context.Context, network, address string, creds credential
 		// that the library would send the wrong ":scheme" metaheader to
 		// servers: it would send "http" instead of "https" because it is
 		// unaware that TLS is actually in use.
-		conn, err := (&net.Dialer{}).DialContext(ctx, network, address)
+		conn, err := torDialer.Dial(network, address)
 		if err != nil {
 			writeResult(err)
 		}
